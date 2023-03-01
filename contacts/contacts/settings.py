@@ -123,3 +123,15 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+CELERY_BEAT_SCHEDULE = { # scheduler configuration
+    'generate_contact' : {  # whatever the name you want
+        'task': 'app.tasks.generate_contact', # name of task with path
+        'schedule': 15,
+    },
+    'delete_old_contacts' : {  # whatever the name you want
+        'task': 'app.tasks.delete_old_contacts', # name of task with path
+        'schedule': 60, # 60 runs this task every 60 seconds
+    },
+}

@@ -12,5 +12,7 @@ app = Celery('celery_app',
              backend='redis://localhost:6379/0'
              )
 
+app.config_from_object("django.conf:settings", namespace="CELERY")
+
 # Load task modules from all registered Django apps.
 app.autodiscover_tasks()
