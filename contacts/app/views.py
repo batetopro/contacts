@@ -32,7 +32,7 @@ class ListContactsView(APIView):
         # serializer = ContactSerializer(data=data)
         # serializer.is_valid(raise_exception=True)
         manager = ContactManager()
-        username = manager.create(data["firstname"], data["lastname"])
+        username = manager.create(data["firstname"], data["lastname"], data["emails"] or [])
         return Response({"username": username})
 
 
@@ -70,7 +70,7 @@ class GetContactView(APIView):
         # serializer = ContactSerializer(data=data)
         # serializer.is_valid(raise_exception=True)
 
-        manager.update(username, data["firstname"], data["lastname"])
+        manager.update(username, data["firstname"], data["lastname"], data.get("emails"))
         return Response({"username": username})
 
     def delete(self, request, username):

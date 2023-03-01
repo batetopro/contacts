@@ -6,7 +6,7 @@ import logging
 from kafka import KafkaConsumer, KafkaProducer
 
 
-from .models import Contact
+from .models import Contact, Email
 
 
 KAFKA_TOPIC = "contacts"
@@ -31,6 +31,10 @@ class ContactCallbackBackend:
     def manager(self):
         return self._manager
 
+    @property
+    def email_manager(self):
+        return self._email_manager
+
     def __init__(self):
         self._consumer = KafkaConsumer(self.topic, group_id=self.group)
         self._callbacks = {
@@ -39,6 +43,7 @@ class ContactCallbackBackend:
             "delete_contact": self.delete_contact,
         }
         self._manager = ContactManager()
+        self._email_manager = EmailManager()
 
     def run(self):
         for row in self.consumer:
@@ -57,13 +62,25 @@ class ContactCallbackBackend:
                 LOGGER.exception(ex)
 
     def create_contact(self, message):
+        emails = self.email_manager.get_emails_by_values(message["emails"])
+        del message["emails"]
+
         contact = Contact(**message)
+        contact.save()
+
+        for email in emails:
+            contact.emails.add(email)
         contact.save()
 
     def update_contact(self, message):
         contact = self.manager.get_by_username(message["username"])
         contact.firstname = message["firstname"]
         contact.lastname = message["lastname"]
+
+        if message.get("emails") is not None:
+            contact.emails.clear()
+            for email in self.email_manager.get_emails_by_values(message["emails"]):
+                contact.emails.add(email)
         contact.save()
 
     def delete_contact(self, message):
@@ -89,13 +106,14 @@ class ContactManager:
     def get_by_username(self, username):
         return Contact.objects.get(username=username)
 
-    def create(self, firstname, lastname):
+    def create(self, firstname, lastname, emails=()):
         username = str(uuid.uuid4())
         message = {
             "_cmd_": "create_contact",
             "username": username,
             "firstname": firstname,
             "lastname": lastname,
+            "emails": emails,
         }
 
         self.producer.send(self.topic, value=message)
@@ -103,12 +121,13 @@ class ContactManager:
 
         return username
 
-    def update(self, username, firstname, lastname):
+    def update(self, username, firstname, lastname, emails=None):
         message = {
             "_cmd_": "update_contact",
             "username": username,
             "firstname": firstname,
             "lastname": lastname,
+            "emails": emails,
         }
 
         self.producer.send(self.topic, value=message)
@@ -122,3 +141,12 @@ class ContactManager:
 
         self.producer.send(self.topic, value=message)
         self.producer.flush()
+
+
+class EmailManager:
+    def get_emails_by_values(self, emails):
+        result = []
+        for item in emails:
+            email = Email.objects.get_or_create(value=item["value"])[0]
+            result.append(email)
+        return result
